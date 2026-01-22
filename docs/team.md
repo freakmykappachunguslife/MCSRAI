@@ -1,6 +1,6 @@
 ---
 layout: default
-title:  Team 23: We Love LeBron James
+title:  Team
 ---
 
 # {{ page.title }}
@@ -9,8 +9,8 @@ title:  Team 23: We Love LeBron James
 ## Edward Zhang
 ***UCI Net ID***: edwardz5
 
-## USER 2
-***UCI Net ID***: ucinetid2
+## John Hu
+***UCI Net ID***: johnh20
 
-## USER 3
-***UCI Net ID***: ucinetid3
+## Vincent Hoang
+***UCI Net ID***: vhoang8
