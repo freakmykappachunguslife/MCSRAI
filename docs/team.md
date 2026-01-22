@@ -1,13 +1,13 @@
 ---
 layout: default
-title:  Team
+title:  Team 23: We Love LeBron James
 ---
 
 # {{ page.title }}
 
 
-## USER 1
-***UCI Net ID***: ucinetid1
+## Edward Zhang
+***UCI Net ID***: edwardz5
 
 ## USER 2
 ***UCI Net ID***: ucinetid2
