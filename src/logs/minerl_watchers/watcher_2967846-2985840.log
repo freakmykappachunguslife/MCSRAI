@@ -1,0 +1,9 @@
+2026-02-08 01:17:26 archlinux process_watcher[2986264] INFO Process watcher started between parent 2967846 and child 2985840 
+2026-02-08 01:48:44 archlinux process_watcher[2986264] INFO Parent is not running, hence we need terminate the child.
+2026-02-08 01:48:44 archlinux process_watcher[2986264] INFO About to reap process tree of 2985840:launchClient.sh:/usr/bin/bash i sleeping, owner 1, printing process tree status in termination order:
+2026-02-08 01:48:44 archlinux process_watcher[2986264] INFO 	-2985844:java:/usr/lib/jvm/java-8-openjdk/jre/bin/java i sleeping, owner 2985840
+2026-02-08 01:48:44 archlinux process_watcher[2986264] INFO 	-2985840:launchClient.sh:/usr/bin/bash i sleeping, owner 1
+2026-02-08 01:48:44 archlinux process_watcher[2986264] INFO Trying to SIGTERM 2985844:java:/usr/lib/jvm/java-8-openjdk/jre/bin/java i sleeping, owner 2985840
+2026-02-08 01:48:49 archlinux process_watcher[2986264] INFO Process 2985844 survived SIGTERM; trying SIGKILL on 2985844:java:/usr/lib/jvm/java-8-openjdk/jre/bin/java i sleeping, owner 2985840
+2026-02-08 01:48:49 archlinux process_watcher[2986264] INFO Process psutil.Process(pid=2985844, name='java', status='terminated', started='01:17:24') terminated with exit code None
+2026-02-08 01:48:49 archlinux process_watcher[2986264] INFO Process psutil.Process(pid=2985840, name='launchClient.sh', status='terminated') does not exist or is zombie.

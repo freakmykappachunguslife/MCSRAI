@@ -1,0 +1,8 @@
+2026-02-11 21:47:38 archlinux watchdog[1981550] INFO Watchdog started between parent 1974353 and child 1980212
+2026-02-12 10:20:50 archlinux watchdog[1981550] INFO Parent is not running, hence we need terminate the child.
+2026-02-12 10:20:50 archlinux watchdog[1981550] INFO About to reap process tree of 1980212:launchClient.sh:/usr/bin/bash i sleeping, owner 1, printing process tree status in termination order:
+2026-02-12 10:20:50 archlinux watchdog[1981550] INFO 	-1980223:java:/usr/lib/jvm/java-8-openjdk/jre/bin/java i sleeping, owner 1980212
+2026-02-12 10:20:50 archlinux watchdog[1981550] INFO 	-1980212:launchClient.sh:/usr/bin/bash i sleeping, owner 1
+2026-02-12 10:20:50 archlinux watchdog[1981550] INFO Trying to SIGTERM 1980223:java:/usr/lib/jvm/java-8-openjdk/jre/bin/java i sleeping, owner 1980212
+2026-02-12 10:20:50 archlinux watchdog[1981550] INFO Process psutil.Process(pid=1980223, name='java', status='terminated', started='21:47:31') terminated with exit code None
+2026-02-12 10:20:50 archlinux watchdog[1981550] INFO Process psutil.Process(pid=1980212, name='launchClient.sh', status='terminated') does not exist or is zombie.
