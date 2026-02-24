@@ -1,2 +1,0 @@
-2026-02-08 01:49:42 archlinux process_watcher[3382116] INFO Process watcher started between parent 3367556 and child 3381625 
-2026-02-08 01:50:26 archlinux process_watcher[3382116] INFO Parent is not running, hence we need terminate the child.

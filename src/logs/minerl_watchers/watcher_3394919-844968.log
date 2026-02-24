@@ -1,9 +1,0 @@
-2026-02-10 09:41:21 dhcp-172-31-156-052.mobile.uci.edu process_watcher[845363] INFO Process watcher started between parent 3394919 and child 844968 
-2026-02-10 09:46:31 dhcp-172-31-156-052.mobile.uci.edu process_watcher[845363] INFO Parent is not running, hence we need terminate the child.
-2026-02-10 09:46:31 dhcp-172-31-156-052.mobile.uci.edu process_watcher[845363] INFO About to reap process tree of 844968:launchClient.sh:/usr/bin/bash i sleeping, owner 1, printing process tree status in termination order:
-2026-02-10 09:46:31 dhcp-172-31-156-052.mobile.uci.edu process_watcher[845363] INFO 	-844978:java:/usr/lib/jvm/java-8-openjdk/jre/bin/java i sleeping, owner 844968
-2026-02-10 09:46:31 dhcp-172-31-156-052.mobile.uci.edu process_watcher[845363] INFO 	-844968:launchClient.sh:/usr/bin/bash i sleeping, owner 1
-2026-02-10 09:46:31 dhcp-172-31-156-052.mobile.uci.edu process_watcher[845363] INFO Trying to SIGTERM 844978:java:/usr/lib/jvm/java-8-openjdk/jre/bin/java i sleeping, owner 844968
-2026-02-10 09:46:36 dhcp-172-31-156-052.mobile.uci.edu process_watcher[845363] INFO Process 844978 survived SIGTERM; trying SIGKILL on 844978:java:/usr/lib/jvm/java-8-openjdk/jre/bin/java i sleeping, owner 844968
-2026-02-10 09:46:36 dhcp-172-31-156-052.mobile.uci.edu process_watcher[845363] INFO Process psutil.Process(pid=844978, name='java', status='terminated', started='09:41:19') terminated with exit code None
-2026-02-10 09:46:36 dhcp-172-31-156-052.mobile.uci.edu process_watcher[845363] INFO Process psutil.Process(pid=844968, name='launchClient.sh', status='terminated') does not exist or is zombie.
