@@ -21,5 +21,6 @@ We use MineRL, a rich package, which allows us to interact with Minecraft throug
 
 Resources / References:
 
-https://minedojo.org
-https://minerl.readthedocs.io/en/latest/index.html
+[MineDojo] (https://minedojo.org)
+
+[MineRL] (https://minerl.readthedocs.io/en/latest/index.html)
