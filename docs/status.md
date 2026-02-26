@@ -63,7 +63,7 @@ The agent is rewarded for obtaining obsidian and placing obsidian, as well as li
 However, there is an issue. Because we trained exclusively on flat terrain, this “best” agent cannot guarantee the creation of the nether portal on non-flat terrain.
 
 
-<video controls src="videos/buildportalbad.mov" type="video/mp4" width="600" height="400">
+<video controls src="videos/buildportalbad.mp4" type="video/mp4" width="600" height="400">
     Your browser does not support the video tag.
 </video>
 
