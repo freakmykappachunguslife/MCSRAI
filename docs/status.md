@@ -73,10 +73,10 @@ Our main repository can be found at this link:
 
 
 The main tools we used was MineRL and MineDojo, both created for Minecraft AI:
-[MineDojo] (https://minedojo.org)
+[MineDojo](https://minedojo.org)
 
 
-[MineRL] (https://minerl.readthedocs.io/en/latest/index.html)
+[MineRL](https://minerl.readthedocs.io/en/latest/index.html)
 
 
 

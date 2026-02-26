@@ -3,7 +3,7 @@ layout: default
 title:  Home
 ---
 
-Source code: https://github.com/freakmykappachunguslife/MCSRAI
+[Source code](https://github.com/freakmykappachunguslife/MCSRAI)
 
 Reports:
 
@@ -21,6 +21,6 @@ We use MineRL, a rich package, which allows us to interact with Minecraft throug
 
 Resources / References:
 
-[MineDojo] (https://minedojo.org)
+[MineDojo](https://minedojo.org)
 
-[MineRL] (https://minerl.readthedocs.io/en/latest/index.html)
+[MineRL](https://minerl.readthedocs.io/en/latest/index.html)
