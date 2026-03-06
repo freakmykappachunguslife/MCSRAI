@@ -83,11 +83,11 @@ The main tools we used was MineRL and MineDojo, both created for Minecraft AI:
 
 ## Video Summary (3/8/2026)
 500th timestep (0 minutes)
-<video controls src="docs/videos/ppo_obsidian-step-0-to-step-500.mp4" type="video/mp4" width="600" height="400">
+<video controls src="videos/ppo_obsidian-step-0-to-step-500.mp4" type="video/mp4">
     Your browser does not support the video tag.
 </video>
 9000th timestep (20 minutes) 
-<video controls src="docs/videos/ppo_obsidian-step-9000-to-step-9500.mp4" type="video/mp4" width="600" height="400">
+<video controls src="videos/ppo_obsidian-step-9000-to-step-9500.mp4" type="video/mp4" >
     Your browser does not support the video tag.
 </video>
 
