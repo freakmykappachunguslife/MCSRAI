@@ -506,6 +506,59 @@ def smoke_test(debug: bool = True):
 
 
 # ---------------------------------------------------------------------------
+
+# ---------------------------------------------------------------------------
+# Record a video from a saved checkpoint
+# ---------------------------------------------------------------------------
+def record_checkpoint(
+    model_path: str,
+    video_path: str = "./videos",
+    video_length: int = 500,
+    max_steps: int = 500,
+):
+    """
+    Load a saved PPO model and record a single episode to an MP4.
+
+    Args:
+        model_path:   path to a .zip checkpoint, e.g. ./checkpoints/ppo_obsidian_final
+        video_path:   directory to write the MP4 into
+        video_length: max frames to record
+        max_steps:    episode step limit passed to the env
+    """
+    import os
+    os.makedirs(video_path, exist_ok=True)
+
+    print(f"Loading model from {model_path} ...")
+    env = ObsidianPortalEnv(cfg=BASE_CFG, max_steps=max_steps)
+
+    # Wrap in a VecEnv so VecVideoRecorder is happy
+    vec_env = DummyVecEnv([lambda: env])
+    vec_env.render_mode = "rgb_array"
+
+    vec_env = VecVideoRecorder(
+        vec_env,
+        video_folder=video_path,
+        record_video_trigger=lambda step: step == 0,  # start immediately
+        video_length=video_length,
+        name_prefix="eval",
+    )
+
+    model = PPO.load(model_path, env=vec_env)
+
+    obs = vec_env.reset()
+    total_reward = 0.0
+    for step in range(video_length):
+        action, _ = model.predict(obs, deterministic=True)
+        obs, reward, done, info = vec_env.step(action)
+        total_reward += float(reward[0])
+        reason = info[0].get("reset_reason", "")
+        if done[0]:
+            print(f"  Episode ended at step {step} — {reason}")
+            break
+
+    vec_env.close()
+    print(f"Video saved to {video_path}/  (cumulative reward: {total_reward:.2f})")
+
 if __name__ == "__main__":
     import argparse
 
@@ -520,9 +573,20 @@ if __name__ == "__main__":
     parser.add_argument("--video-freq", type=int, default=10_000, help="Record a clip every N steps")
     parser.add_argument("--video-length", type=int, default=500, help="Length of each clip in steps")
     parser.add_argument("--max-steps", type=int, default=500, help="Max steps per episode before reset")
+    parser.add_argument("--record", metavar="MODEL_PATH", default=None,
+                        help="Load a checkpoint and record a video instead of training")
+    parser.add_argument("--eval-video-path", default="./videos")
+    parser.add_argument("--eval-video-length", type=int, default=500)
     args = parser.parse_args()
 
-    if args.smoke:
+    if args.record:
+        record_checkpoint(
+            model_path=args.record,
+            video_path=args.eval_video_path,
+            video_length=args.eval_video_length,
+            max_steps=args.max_steps,
+        )
+    elif args.smoke:
         smoke_test()
     else:
         train(
