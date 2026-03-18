@@ -1,6 +1,9 @@
 .vscode
 videos
-checkpoints
 logs
 logs.monitor.csv
 MineDojo
+
+# checkpoints
+checkpoints
+variable*

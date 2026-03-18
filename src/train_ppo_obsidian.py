@@ -49,31 +49,44 @@ VOXEL_SHAPE = (9, 9, 9)
 # ---------------------------------------------------------------------------
 # Helper: detect a minimal nether-portal frame (4×5 obsidian rectangle)
 # ---------------------------------------------------------------------------
-def _has_portal_frame(obsidian_grid: np.ndarray) -> bool:
+# 14 positions of a valid nether portal frame (4 wide × 5 tall),
+# as (x, y) offsets from the bottom-left corner of the frame.
+# Corners are optional in Minecraft but included here for full reward.
+_PORTAL_FRAME_OFFSETS = [
+    (0, 0), (1, 0), (2, 0), (3, 0),  # bottom row
+    (0, 4), (1, 4), (2, 4), (3, 4),  # top row
+    (0, 1), (0, 2), (0, 3),           # left column
+    (3, 1), (3, 2), (3, 3),           # right column
+]
+_PORTAL_FRAME_SIZE = len(_PORTAL_FRAME_OFFSETS)  # 14
+
+
+def _score_portal_progress(obsidian_grid: np.ndarray):
     """
-    Checks whether a 4-wide × 5-tall rectangular obsidian frame exists
-    in any vertical slice of the local voxel grid.
-    obsidian_grid: bool array of shape VOXEL_SHAPE (x, y, z)
+    Slide a 4×5 window over every z-slice of the voxel grid and count
+    how many of the 14 frame positions are filled in the best candidate.
+
+    Returns:
+        best_score  int  — 0-14, how many frame positions are filled
+        is_complete bool — True if all 14 positions are filled
     """
-    # Search over z-slices (treat z as depth, x as width, y as height)
+    best = 0
     for z in range(obsidian_grid.shape[2]):
-        plane = obsidian_grid[:, :, z]  # shape (9, 9)
-        # Slide a 4-wide × 5-tall window
+        plane = obsidian_grid[:, :, z]
         for x in range(plane.shape[0] - 3):
             for y in range(plane.shape[1] - 4):
-                frame = plane[x : x + 4, y : y + 5]
-                # Frame = perimeter filled, interior hollow
-                interior = frame[1:3, 1:4]
-                perimeter_ok = (
-                    frame[0, :].all()       # bottom row
-                    and frame[3, :].all()   # top row
-                    and frame[:, 0].all()   # left col
-                    and frame[:, 4].all()   # right col
+                score = sum(
+                    1 for (dx, dy) in _PORTAL_FRAME_OFFSETS
+                    if plane[x + dx, y + dy]
                 )
-                interior_ok = not interior.any()
-                if perimeter_ok and interior_ok:
-                    return True
-    return False
+                if score > best:
+                    best = score
+    return best, best == _PORTAL_FRAME_SIZE
+
+
+def _has_portal_frame(obsidian_grid: np.ndarray) -> bool:
+    _, complete = _score_portal_progress(obsidian_grid)
+    return complete
 
 
 # ---------------------------------------------------------------------------
@@ -122,7 +135,10 @@ class ObsidianPortalEnv(gym.Env):
 
         # ---- internal state ----
         self._prev_voxel_obsidian: int = 0
-        self._portal_bonus_given: bool = False
+        self._prev_portal_score: int   = 0
+        self._prev_misplaced: int       = 0
+        self._portal_bonus_given: bool  = False
+        self._total_steps: int          = 0  # global step counter for curriculum
         self._step_count: int = 0
         self._image_size: tuple = cfg["image_size"]  # (H, W)
         self._last_rgb: np.ndarray | None = None
@@ -245,27 +261,86 @@ class ObsidianPortalEnv(gym.Env):
 
         return action
 
+    def _soft_respawn(self) -> None:
+        """
+        Reset the world state and respawn the agent without restarting
+        the Java process.
+
+        Steps:
+          1. /fill — replace all obsidian in the build area with air
+          2. kill_agent() — respawn the agent
+          3. teleport_agent() — return to episode start position
+          4. set_inventory() — restore full obsidian stack
+        """
+        x, y, z = self._spawn_pos
+        # Clear a generous area around spawn to wipe any placed obsidian.
+        # The fill range should comfortably exceed the voxel window (±4).
+        r = 16
+        x0, y0, z0 = int(x) - r, int(y) - r, int(z) - r
+        x1, y1, z1 = int(x) + r, int(y) + r, int(z) + r
+        self._env.execute_cmd(
+            f"/fill {x0} {y0} {z0} {x1} {y1} {z1} air replace obsidian"
+        )
+        self._env.kill_agent()
+        self._env.teleport_agent(x, y, z, yaw=0, pitch=0)
+        self._env.set_inventory([
+            InventoryItem(slot=0, name="obsidian",        variant=None, quantity=64),
+            InventoryItem(slot=1, name="flint_and_steel", variant=None, quantity=1),
+        ])
+        # Reset health and voxel tracking to avoid spurious reward signals.
+        self._prev_health         = 20.0
+        self._current_health      = 20.0
+        self._prev_voxel_obsidian = 0
+        self._prev_portal_score   = 0
+        self._prev_misplaced       = 0
+
     def _compute_reward(self, obsidian_mask: np.ndarray) -> float:
-        current_voxel = int(obsidian_mask.sum())
-        new_placements = max(0, current_voxel - self._prev_voxel_obsidian)
-        self._prev_voxel_obsidian = current_voxel
+        bool_mask = obsidian_mask.astype(bool)
+        current_score, is_complete = _score_portal_progress(bool_mask)
+
+        # -- Flat placement reward --
+        # Small reward for placing ANY block so early exploration is positive.
+        # This gets the agent off the ground before it learns frame geometry.
+        total_placed = int(bool_mask.sum())
+        prev_total   = self._prev_voxel_obsidian
+        self._prev_voxel_obsidian = total_placed
+        new_placements = max(0, total_placed - prev_total)
+        flat_reward = new_placements * 0.5  # +0.5 per block placed anywhere
+
+        # -- Progress reward --
+        # Additional reward specifically for blocks on valid frame positions.
+        progress_delta = current_score - self._prev_portal_score
+        self._prev_portal_score = current_score
+        progress_reward = max(0, progress_delta) * 2.0  # +2.0 per frame position filled
+
+        # -- Misplaced block penalty (curriculum) --
+        # Start at 0 penalty so the agent freely explores placement.
+        # Linearly ramp up to full -1.0 penalty over CURRICULUM_STEPS steps.
+        # This gives the agent time to discover placing is good before
+        # punishing it for placing in the wrong location.
+        CURRICULUM_STEPS = 200_000
+        misplaced_weight = min(1.0, self._total_steps / CURRICULUM_STEPS)
+        misplaced = max(0, total_placed - current_score)
+        misplaced_delta = misplaced - self._prev_misplaced
+        self._prev_misplaced = misplaced
+        misplaced_penalty = max(0, misplaced_delta) * misplaced_weight  # ramps 0→1.0
 
         # -- Damage penalty --
         damage_taken = self._prev_health - self._current_health
         self._prev_health = self._current_health
-        damage_penalty = max(0.0, damage_taken) * 0.5  # -0.5 per heart lost
+        damage_penalty = max(0.0, damage_taken) * 0.5
         death_penalty  = 5.0 if self._current_health <= 0.0 else 0.0
 
         reward = (
-            new_placements * 1.0   # +1.0 per block placed
-            - damage_penalty       # -0.5 per heart of damage taken
-            - death_penalty        # -5.0 on death
-            - 0.01                 # time penalty
+            flat_reward          # +0.5 per block placed anywhere
+            + progress_reward    # +2.0 per frame-position filled
+            - misplaced_penalty  # 0→-1.0 per wasted block (curriculum)
+            - damage_penalty     # -0.5 per heart lost
         )
 
-        # One-time portal frame bonus
-        if not self._portal_bonus_given and _has_portal_frame(obsidian_mask.astype(bool)):
-            reward += 5.0
+        # One-time portal completion bonus
+        if not self._portal_bonus_given and is_complete:
+            reward += 20.0
             self._portal_bonus_given = True
 
         return reward
@@ -273,8 +348,19 @@ class ObsidianPortalEnv(gym.Env):
     # ------------------------------------------------------------------
     def reset(self, *, seed=None, options=None):
         raw_obs = self._env.reset()
+        # Prevent obsidian scattering on death; we handle respawn manually.
+        self._env.execute_cmd("/gamerule keepInventory true")
+        # Record spawn position to teleport back to after death.
+        pos = raw_obs.get("location_stats", {})
+        self._spawn_pos = (
+            float(pos.get("xpos", 0)),
+            float(pos.get("ypos", 64)),
+            float(pos.get("zpos", 0)),
+        )
         self._prev_voxel_obsidian = 0
-        self._portal_bonus_given  = False
+        self._prev_portal_score   = 0
+        self._prev_misplaced       = 0
+        self._portal_bonus_given   = False
         self._step_count = 0
         self._prev_health    = 20.0
         self._current_health = 20.0
@@ -287,7 +373,8 @@ class ObsidianPortalEnv(gym.Env):
         raw_obs, _inner_reward, terminated, info = self._env.step(action)
         obs = self._extract_obs(raw_obs)
         reward = self._compute_reward(obs["obsidian_mask"])
-        self._step_count += 1
+        self._step_count  += 1
+        self._total_steps += 1
 
         # Episode ends when the agent runs out of obsidian in the voxel
         # window (inventory depleted and none placed nearby), or the step
@@ -300,11 +387,13 @@ class ObsidianPortalEnv(gym.Env):
         out_of_obsidian = (inv_obsidian == 0)
         time_limit_hit  = (self._step_count >= self._max_steps)
 
-        truncated = time_limit_hit
-        terminated = terminated or out_of_obsidian or died
+        truncated  = time_limit_hit
+        terminated = terminated or out_of_obsidian  # death no longer ends episode
 
         if died:
+            # Respawn in-place; world state (placed blocks) is preserved.
             info["reset_reason"] = "death"
+            self._soft_respawn()
         elif out_of_obsidian:
             info["reset_reason"] = "inventory_depleted"
         elif time_limit_hit:
@@ -438,7 +527,7 @@ def train(
         gamma=0.99,
         gae_lambda=0.95,
         clip_range=0.2,
-        ent_coef=0.01,         # encourage exploration
+        ent_coef=0.05,         # encourage exploration
         vf_coef=0.5,
         max_grad_norm=0.5,
         tensorboard_log=log_path,
