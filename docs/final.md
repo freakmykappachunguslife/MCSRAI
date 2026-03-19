@@ -204,7 +204,7 @@ Your browser does not support the video tag.
 
 It is possible that this was partly a programming mistake on our end. Our bottom row check may have been too generous, or the reward may have triggered in situations we did not fully intend. But more importantly, it showed us a much bigger lesson about reinforcement learning. Even when a reward system feels logical to us, the model may still find a loophole that maximizes reward without solving the actual task.
 
-![different_approach_mean_graph](./images/differentapproachean.png)
+![different_approach_mean_graph](./images/differentapproachmean.png)
 
 This graph reflects that progression quite well. In the early stages of training, the model improved quickly because it learned a simple useful behavior, which was placing obsidian blocks instead of doing nothing. After that, the reward curve leveled off for a long stretch, showing that while the model was making progress, it still had not learned how to consistently build a proper portal frame. Then, around 170k to 200k timesteps, the reward rose sharply, which suggests the model had begun to act more deliberately and was benefiting from the subgoal based reward structure. Even though the score later dipped and recovered, the overall trend stayed much higher than before, ending near a reward of 90 by about 262k steps. In other words, the graph shows that the subgoal based approach did help the model learn more stable and purposeful behavior, but it also supports our conclusion that higher reward did not always mean true task completion, since the model could still exploit parts of the reward system without fully solving the portal building problem.
 
