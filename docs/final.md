@@ -117,26 +117,29 @@ It learned to not do anything. By mucking around, the model would be able to "ma
 
 # We Need to Go Deeper
 
-This issue with our model's learned helplessness is attributed to our rewards. We thought these were logical choices for reward/punishment, however, we were not thinking like a computer program, we were thinking like humans.
+This issue with our model's "learned helplessness" is attributed to our rewards. We thought these were logical choices for reward/punishment, however, we were not thinking like a computer program, we were thinking like humans.
 
 So, we tried something a little more discrete rather than continuous.
 
 By dynamically changing our reward system during the training, we could attempt to reinforce good behaviour at a certain step and later reduce bad behavior.
 
 This led us to a new system:
-- 0-100k timesteps: Reward by +0.5 for any obsidian placed
+## Phase 1: Any Obsidian is Good Obsidian (0–100k steps)
+In this phase, the model receives +0.5 for every obsidian block placed, regardless of where it lands. No penalties. No geometry checks. Just a simple, unambiguous signal: placing blocks is good.
 
-This would allow the model to continue to learn that placing obsidian (in general) is a good decision to take!
+## Phase 2: Not Just Anywhere (100k–200k steps)
+With the model now committed to placing blocks, we introduced a soft penalty of -0.5 for any obsidian placed outside a valid frame position. Critically, the +0.5 flat reward remains active — a misplaced block still earns something, it just earns less than a correctly placed one. The model is never punished into inaction; it is nudged toward better choices while still being rewarded for trying.
+This phase acts as a transition. The model begins to notice that some placements feel better than others, without ever hitting the sharp negative signal that caused learned helplessness in the first place
 
-- 100k-200k timesteps: Punish by -0.5 for any bad obsidian placed.
+## Phase 3: The Frame (200k+ steps)
+In the final phase, the full reward signal activates. Blocks placed on one of the 14 valid nether portal frame positions earn an additional +2.0 on top of the flat reward, making correct placement worth +2.5 total versus +0.5 for a misplaced block. The model now has a clear target and the training history to pursue it without collapsing back into passivity.
 
-This would begin to wean our model away from randomly placing obsidian.
 
-- 200k+ steps: Reward further by +2.0 for correct shape.
+# Sucess?
+Not Really, : put in video here
 
-This would hopefully reinforce "good" placement for frames.
-
-# ENTROPY STUFF
+# A Different Approach
+this is for vincent
 
 
 
@@ -150,7 +153,7 @@ The main things were learned form this experience were the following:
 
 In future, we could/should implement the following:
 - Reducing the size of the RGB frame for faster computation (the model does not need to focus on the extraneous noise on the side of the frame); we could do this by completely culling the values towards the edge of the image, allowing the model to focus on what's ahead of it.
-- Use a better tool; MineDojo and MineRL both only run on 1.11, which is a very old version of Minecraft and not the common version players speedrun on, which is post 1.16.
+- Use a better tool; MineDojo and MineRL both only run on 1.11, which is a older version of Minecraft and not the common version players speedrun on, which is post 1.16.1.
 
 
 
@@ -159,3 +162,6 @@ In future, we could/should implement the following:
 
 
 ## Video Walkthrough: 
+
+
+# CITE SOURCES REMEMBER
