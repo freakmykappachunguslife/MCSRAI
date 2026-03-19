@@ -103,6 +103,9 @@ As we observed, the model began very poorly, still haphazardly placing obsidian;
 
 This was exciting to observe on Tensorboard, seeing the total reward begin to rise! We had began to create a "good" model!
 
+![](./images/rew_mean_1M_ts.png)
+
+![Watch 500k clip](./videos/500k.mp4)
 Or so we thought.
 
 ## Hot Stuff
