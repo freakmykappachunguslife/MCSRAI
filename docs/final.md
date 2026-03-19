@@ -59,7 +59,7 @@ The MineDojo environment is a Minecraft world in which the Malmo agent is able t
 # Methods
 
 ## Proximal Policy Optimization
-Proximal Policy Optimization (PPO) [Schulman et al., 2017] is an on-policy actor-critic algorithm that updates the policy by maximising a clipped surrogate objective, preventing any single update from changing the policy too drastically. For our task, PPO was the natural choice for several reasons. First, our action space is a compound **MultiDiscrete([3,3,4,25,25,8,244,36])** representing simultaneous movement, camera, and functional actions — DQN is fundamentally incompatible with this structure as it requires enumerating Q-values over every possible action, which at roughly 47 million combinations is **computationally intractable**. SAC, while effective in continuous control, was designed for Box action spaces and lacks stable discrete support in standard implementations. Second, our reward function changes during training via the curriculum — the misplaced block penalty ramps from 0 to 1.0 over 200,000 steps — and PPO's on-policy nature means every gradient update is computed on experience collected under the current reward signal, keeping the policy and reward function in sync. An off-policy method like SAC would contaminate its replay buffer with transitions collected under an earlier, weaker penalty, muddying the curriculum signal. Finally, PPO's ent_coef parameter gave us direct control over the exploration-exploitation tradeoff, which proved critical when the model first exhibited learned helplessness — raising entropy from 0.01 to 0.05 was a hyperparameter that would not be possible in a value-based framework like SAC.
+**Proximal Policy Optimization** (PPO) [Schulman et al., 2017] is an on-policy actor-critic algorithm that updates the policy by maximising a clipped surrogate objective, preventing any single update from changing the policy too drastically. For our task, PPO was the natural choice for several reasons. First, our action space is a **compound** **MultiDiscrete([3,3,4,25,25,8,244,36])** representing simultaneous movement, camera, and functional actions — DQN is fundamentally incompatible with this structure as it requires enumerating Q-values over every possible action, which at roughly 47 million combinations is **computationally intractable**. SAC, while effective in continuous control, was designed for Box action spaces and lacks stable discrete support in standard implementations. Second, our reward function changes during training via the curriculum — the misplaced block penalty ramps from 0 to 1.0 over 200,000 steps — and PPO's on-policy nature means every gradient update is computed on experience collected under the current reward signal, keeping the policy and reward function in sync. An off-policy method like SAC would contaminate its replay buffer with transitions collected under an earlier, weaker penalty, muddying the curriculum signal. Finally, PPO's ent_coef parameter gave us direct control over the exploration-exploitation tradeoff, which proved critical when the model first exhibited learned helplessness — raising entropy from 0.01 to 0.05 was a hyperparameter that would not be possible in a value-based framework like SAC.
 
 To implement PPO in our initial models, we utilized Stable-Baseline3 [Raffin et al., 2021] and its default parameters.
 # Approach and Evaluation
@@ -111,7 +111,8 @@ So, to avoid the model from sporadically placing obsidian, we shape our rewards.
 
 This led us to the following graph:
 
-INSERT HERE
+![](./images/rew_mean_1M_ts.png)
+
 
 ** A Preface: All the future graphs will have the total reward value in the negatives. This is expected and due to the punishment for timesteps **
 
@@ -119,9 +120,7 @@ As we observed, the model began very poorly, still haphazardly placing obsidian;
 
 This was exciting to observe on Tensorboard, seeing the total reward begin to rise! We had began to create a "good" model!
 
-![](./images/rew_mean_1M_ts.png)
 
-Or so we thought.
 
 ## Hot Stuff
 
@@ -145,7 +144,7 @@ This issue with our model's "learned helplessness" is attributed to our reward s
 
 So, we tried something a little more dynamic rather than static.
 
-By dynamically changing our reward system during the training, we could attempt to reinforce good behaviour at a certain step and later reduce bad behavior.
+By dynamically shaping our reward system during the training, we could attempt to reinforce good behaviour at a certain step and later reduce bad behavior.
 
 This led us to a new system:
 
@@ -163,8 +162,15 @@ This phase acts as a transition. The model begins to notice that some placements
 In the final phase, the full reward signal activates. Blocks placed on one of the 14 valid nether portal frame positions earn an additional +2.0 on top of the flat reward, making correct placement worth +2.5 total versus +0.5 for a misplaced block. The model now has a clear target and the training history to pursue it without collapsing back into passivity.
 
 # Sucess?
+not really.
 
-Not Really, : put in video here
+![not really](./images/post_rew_shape.png)
+
+We observe the model actually decrease in the reward in the first 100k steps, curiously due to the fact that we removed the punishment for getting hurt. We see episode length stagnant: 
+![alt text](./images/ep_len.png)
+
+This, likely is likely because it is killing itself, shortening its life on the environment. This is where we ended our training, as it wouldn't unlearn this behavior, since we never will punish for getting hurt or episode length. 
+
 
 # A Different Approach
 
@@ -176,6 +182,7 @@ Your browser does not support the video tag.
 At this point, we started to think that the issue was not just the reward system, but also the way the model was allowed to move. Even after simplifying the action space, the camera movement was still far too messy. The agent would look in strange directions, turn too much, and lose track of where it had already placed obsidian. For a task like portal building, that was a huge problem.
 
 So, we changed the action space again. Rather than letting the model control random low level camera movement, we switched to a smaller set of discrete actions. Instead of trying to learn every possible pitch and yaw movement, the model could now choose simple actions like look left, look right, look up, look down, move, place obsidian, jump and place obsidian, and ignite the portal. This made the camera much smoother and made the task much easier to learn.
+
 <video controls src="./videos/RnadomlyPlacingBlocks.mp4" type="video/mp4" width="400" height="400">
 Your browser does not support the video tag.
 </video>
@@ -183,6 +190,7 @@ Your browser does not support the video tag.
 From there, we also split the task into phases. First came the build phase. In this phase, the model only had to make the obsidian frame. If it tried to use the flint and steel too early, that action would be blocked and punished. Then came the light phase. Once the frame was complete, the model was encouraged to switch to the flint and steel and ignite the portal. Successfully lighting the portal gave a large reward of +40.
 
 Even with this change, the model still had trouble finishing the full frame consistently. It would often start well, but then drift away and place blocks in bad positions. Still, by around 50k timesteps, we could see that the model had at least learned one useful behavior: it was now intentionally placing obsidian blocks rather than just wandering around aimlessly.
+
 <video controls src="./videos/differentapproach50k.mp4" type="video/mp4" width="400" height="400">
 Your browser does not support the video tag.
 </video>
@@ -190,9 +198,11 @@ Your browser does not support the video tag.
 So, we broke the build phase down even further into smaller subgoals. Completing the bottom row gave a reward of +4. Completing the left side gave +3. Completing the right side gave +3. Completing the top row gave +4. The goal here was to stop treating the portal like one big all or nothing task, and instead reward the model for making progress piece by piece.
 
 But this led to another issue. The model seemed to figure out that the easiest reward to exploit was the bottom row reward. Rather than building the sides and finishing the portal, it kept repeating the bottom row pattern again and again. Instead of making a frame, it would place four obsidian in a row, then another four, then another four, creating a long line of obsidian across the ground. By around 200k timesteps, the model looked much more deliberate than before, but it was still exploiting this bottom row behavior rather than truly completing the portal.
+
 <video controls src="./videos/differentapproach200k.mp4" type="video/mp4" width="400" height="400">
 Your browser does not support the video tag.
 </video>
+
 
 It is possible that this was partly a programming mistake on our end. Our bottom row check may have been too generous, or the reward may have triggered in situations we did not fully intend. But more importantly, it showed us a much bigger lesson about reinforcement learning. Even when a reward system feels logical to us, the model may still find a loophole that maximizes reward without solving the actual task.
 
@@ -210,7 +220,7 @@ MineDojo was probably our biggest limitation, particularly our setup and computa
 ## Improvements and Changes
 
 ### 3D CNNs
-A 3D CNN could add spatial locatlity, to our voxel space. It could learn shapes like a nether portal. 
+A 3D CNN could add spatial locatlity, to our voxel space. It could learn shapes like a nether portal in the voxel space. 
 
 
 ### A Change of Pace
@@ -220,35 +230,14 @@ If all we were focused on was the performance of our agent, we would switch off 
 
 This would have the highest potential for actually being able to do our original goal, speedrunning Minecraft.
 
-
-
-
-
-
 ## Resources Used:
+Towers, M., Terry, J. K., Kwiatkowski, A., Balis, J. U., Cola, G. D., Deleu, T.,
+Goulão, M., Kallinteris, A., KG, A., Kuzmins, M., Perez-Vicente, R., Pierré, A.,
+Schulhoff, S., Tai, J. J., Tan, A. J. S., & Younis, O. G. (2023).
+Gymnasium.
+Zenodo.
+https://doi.org/10.5281/zenodo.8127026
 
-## References:
-
-Schulman, J., Wolski, F., Dhariwal, P., Radford, A., & Klimov, O. (2017).
-Proximal Policy Optimization Algorithms.
-arXiv preprint arXiv:1707.06347.
-https://arxiv.org/abs/1707.06347
-
-Raffin, A., Hill, A., Gleave, A., Kanervisto, A., Ernestus, M., & Dormann, N. (2021).
-Stable-Baselines3: Reliable Reinforcement Learning Implementations.
-Journal of Machine Learning Research, 22(268), 1–8.
-http://jmlr.org/papers/v22/20-1364.html
-
-Guss, W. H., Houghton, B., Topin, N., Wang, P., Codel, C., Veloso, M., & Salakhutdinov, R. (2019).
-MineRL: A Large-Scale Dataset of Minecraft Demonstrations.
-Proceedings of the 28th International Joint Conference on Artificial Intelligence (IJCAI).
-https://arxiv.org/abs/1907.13440
-
-Fan, L., Wang, G., Jiang, Y., Mandlekar, A., Yang, Y., Zhu, H., Tang, A.,
-Huang, D., Zhu, Y., & Anandkumar, A. (2022).
-MineDojo: Building Open-Ended Embodied Agents with Internet-Scale Knowledge.
-Advances in Neural Information Processing Systems, 35, 18343–18362.
-https://minedojo.org
 
 Paszke, A., Gross, S., Massa, F., Lerer, A., Bradbury, J., Chanan, G., Killeen, T.,
 Lin, Z., Gimelshein, N., Antiga, L., Desmaison, A., Kopf, A., Yang, E., DeVito, Z.,
@@ -257,13 +246,6 @@ PyTorch: An Imperative Style, High-Performance Deep Learning Library.
 Advances in Neural Information Processing Systems, 32, 8024–8035.
 https://pytorch.org
 
-Towers, M., Terry, J. K., Kwiatkowski, A., Balis, J. U., Cola, G. D., Deleu, T.,
-Goulão, M., Kallinteris, A., KG, A., Kuzmins, M., Perez-Vicente, R., Pierré, A.,
-Schulhoff, S., Tai, J. J., Tan, A. J. S., & Younis, O. G. (2023).
-Gymnasium.
-Zenodo.
-https://doi.org/10.5281/zenodo.8127026
-
 Harris, C. R., Millman, K. J., van der Walt, S. J., Gommers, R., Virtanen, P.,
 Cournapeau, D., Wieser, E., Taylor, J., Berg, S., Smith, N. J., Kern, R., Picus, M.,
 Hoyer, S., van Kerkwijk, M. H., Brett, M., Haldane, A., del Río, J. F., Wiebe, M.,
@@ -271,6 +253,30 @@ Peterson, P., … Oliphant, T. E. (2020).
 Array programming with NumPy.
 Nature, 585, 357–362.
 https://doi.org/10.1038/s41586-020-2649-2
+
+Raffin, A., Hill, A., Gleave, A., Kanervisto, A., Ernestus, M., & Dormann, N. (2021).
+Stable-Baselines3: Reliable Reinforcement Learning Implementations.
+Journal of Machine Learning Research, 22(268), 1–8.
+http://jmlr.org/papers/v22/20-1364.html
+
+Fan, L., Wang, G., Jiang, Y., Mandlekar, A., Yang, Y., Zhu, H., Tang, A.,
+Huang, D., Zhu, Y., & Anandkumar, A. (2022).
+MineDojo: Building Open-Ended Embodied Agents with Internet-Scale Knowledge.
+Advances in Neural Information Processing Systems, 35, 18343–18362.
+https://minedojo.org
+
+
+## References:
+
+Schulman, J., Wolski, F., Dhariwal, P., Radford, A., & Klimov, O. (2017).
+Proximal Policy Optimization Algorithms.
+arXiv preprint arXiv:1707.06347.
+https://arxiv.org/abs/1707.06347
+
+Guss, W. H., Houghton, B., Topin, N., Wang, P., Codel, C., Veloso, M., & Salakhutdinov, R. (2019).
+MineRL: A Large-Scale Dataset of Minecraft Demonstrations.
+Proceedings of the 28th International Joint Conference on Artificial Intelligence (IJCAI).
+https://arxiv.org/abs/1907.13440
 
 ## Video Walkthrough:
 
