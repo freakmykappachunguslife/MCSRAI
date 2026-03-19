@@ -59,25 +59,33 @@ The MineDojo environment is a Minecraft world in which the Malmo agent is able t
 # Methods
 
 ## Proximal Policy Optimization
-Proximal Policy Optimization (PPO) [Schulman et al., 2017] is an on-policy actor-critic algorithm that updates the policy by maximising a clipped surrogate objective, preventing any single update from changing the policy too drastically. For our task, PPO was the natural choice for several reasons. First, our action space is a compound MultiDiscrete([3,3,4,25,25,8,244,36]) representing simultaneous movement, camera, and functional actions — DQN is fundamentally incompatible with this structure as it requires enumerating Q-values over every possible action, which at roughly 47 million combinations is computationally intractable. SAC, while effective in continuous control, was designed for Box action spaces and lacks stable discrete support in standard implementations. Second, our reward function changes during training via the curriculum — the misplaced block penalty ramps from 0 to 1.0 over 200,000 steps — and PPO's on-policy nature means every gradient update is computed on experience collected under the current reward signal, keeping the policy and reward function in sync. An off-policy method like SAC would contaminate its replay buffer with transitions collected under an earlier, weaker penalty, muddying the curriculum signal. Finally, PPO's ent_coef parameter gave us direct control over the exploration-exploitation tradeoff, which proved critical when the model first exhibited learned helplessness — raising entropy from 0.01 to 0.05 was a hyperparameter that would not be possible in a value-based framework like SAC.
+Proximal Policy Optimization (PPO) [Schulman et al., 2017] is an on-policy actor-critic algorithm that updates the policy by maximising a clipped surrogate objective, preventing any single update from changing the policy too drastically. For our task, PPO was the natural choice for several reasons. First, our action space is a compound **MultiDiscrete([3,3,4,25,25,8,244,36])** representing simultaneous movement, camera, and functional actions — DQN is fundamentally incompatible with this structure as it requires enumerating Q-values over every possible action, which at roughly 47 million combinations is **computationally intractable**. SAC, while effective in continuous control, was designed for Box action spaces and lacks stable discrete support in standard implementations. Second, our reward function changes during training via the curriculum — the misplaced block penalty ramps from 0 to 1.0 over 200,000 steps — and PPO's on-policy nature means every gradient update is computed on experience collected under the current reward signal, keeping the policy and reward function in sync. An off-policy method like SAC would contaminate its replay buffer with transitions collected under an earlier, weaker penalty, muddying the curriculum signal. Finally, PPO's ent_coef parameter gave us direct control over the exploration-exploitation tradeoff, which proved critical when the model first exhibited learned helplessness — raising entropy from 0.01 to 0.05 was a hyperparameter that would not be possible in a value-based framework like SAC.
 
+To implement PPO in our initial models, we utilized Stable-Baseline3 [Raffin et al., 2021] and its default parameters.
 # Approach and Evaluation
+To begin, we began with a very basic agent, no policy yet, just randomly select from all actions in our MultiDiscrete([3,3,4,25,25,8,244,36]) action space, masking impossible actions, and letting it roam free. 
 
 ## Stone Age
 
 As we began to train, we noticed issues. First off, we needed to redefine our "start state". With the default environment, the terrain wasn't flat. This could cause our agent to create "bad" portals, despite it thinking it was (attached video is example ADD TS FROM BEFORE).
 
+<video controls src="./videos/randomagent.mp4" type="video/mp4" width="600" height="400">
+Your browser is old as hell
+</video>
+
+
 So, we changed our "start state" to begin on a superflat world. This would create completely flat and replicable terrain for our agent to train on. But with this came the fact that there is no method to create a portal in this superflat world. So, we gave the agent the nescessary resources to begin building.
 
 Initially, we looked at the base choice: random. Take a random input from the action space, and do it. Do this over 10000 timesteps, and see what happens. As expected, this model was terrible! It did a whole lot of nothing, tossing items around, opening the inventory endlessly, and other inefficient inputs. And as such, we decided to redefine the action space.
 
-We rid ourselves of many uneventful actions, like "Q", "E", "F", and "ESC" for example. This would make our agent to always pick some input that guided us towards completion.
+We mask our action space even more, like dropping items, opening inventory, and settings for example. This would make our agent to always pick some input that guided us towards completion.
 
-With these basic things in mind, we were able to begin really training our model.
+With these basic things in mind, we were able to begin really training a model that would build a portal.
 
 ## Aquire Hardware
 
 With our redefined start states, we could begin to train this model, primarily using PPO.
+We initalized a basic policy:
 
 By rewarding the model for placing obsidian, our model learned to place obsidian.
 
@@ -88,12 +96,15 @@ By punishing the model for taking damage, we prevented the model from lighting i
 - Punishment: Take damage; -0.1
 
 However, as we trained, we observed the model learned to place all the obsidian, although haphazardly.
+<video controls src="./videos/ppo_obsidian-step-9000-to-step-9500.mp4" type="video/mp4" width="600" height="400">
+ur browser sucks
+</video>
 
 We were making progress, avoiding deaths from fire and placing obsidian, but the models were not close to creating a valid portal frame. Despite this, we were moving towards our goal and this was a good first step.
 
-# Ice Bucket Challenge
+# Ice Bucket Challenge - Reward Shaping
 
-So, to avoid the model from sporadically placing obsidian, we added more rewards and punishments. To prohibit "bad" placement of obsidian, we punished the model for each obsidian that did not conform to a valid frame, checking using the voxel space. But, to encourage valid frames, we rewarded for correct location of obsidian. Furthermore, we also added a punishment for each timestep during training, which we used to push the model to choose actions earlier.
+So, to avoid the model from sporadically placing obsidian, we shape our rewards. To prohibit "bad" placement of obsidian, we punished the model for each obsidian that did not conform to a valid frame, checking using the voxel space. But, to encourage valid frames, we rewarded for correct location of obsidian. Furthermore, we also added a punishment for each timestep during training, which we used to push the model to choose actions earlier.
 
 - Reward: Proper frame location; +2
 - Punishment: Improper frame location; -1 | Timestep ; -0.01
@@ -110,7 +121,6 @@ This was exciting to observe on Tensorboard, seeing the total reward begin to ri
 
 ![](./images/rew_mean_1M_ts.png)
 
-![Watch 500k clip](./videos/500k.mp4)
 Or so we thought.
 
 ## Hot Stuff
@@ -121,15 +131,19 @@ Why is this relevant to our model?
 
 It's because we gave our model Pike syndrome.
 
+<video controls src="./videos/1mtimesteps.mp4" type="video/mp4" width="600" height="400">
+ur browser sucks
+</video>
+
 As our inital model was terrible, it accumulated tons of punishment. So, as we trained it on the new reward/punishment system,iIt learned to never place "bad obsidian" by simply not placing any obsidian. This way, it never accumulated its previous punishments and the reasoning behind our seemingly improving scores.
 
-It learned to not do anything. By mucking around, the model would be able to "maximise" its reward by reducing its punishments.
+It learned to not do anything. By mucking around, the model would be able to maximise its reward by reducing its punishments.
 
 # We Need to Go Deeper
 
-This issue with our model's "learned helplessness" is attributed to our rewards. We thought these were logical choices for reward/punishment, however, we were not thinking like a computer program, we were thinking like humans.
+This issue with our model's "learned helplessness" is attributed to our reward shaping. We thought these were logical choices for reward/punishment, however, we were not thinking like a computer program, we were thinking like humans.
 
-So, we tried something a little more discrete rather than continuous.
+So, we tried something a little more dynamic rather than static.
 
 By dynamically changing our reward system during the training, we could attempt to reinforce good behaviour at a certain step and later reduce bad behavior.
 
@@ -137,7 +151,7 @@ This led us to a new system:
 
 ## Phase 1: Any Obsidian is Good Obsidian (0–100k steps)
 
-In this phase, the model receives +0.5 for every obsidian block placed, regardless of where it lands. No penalties. No geometry checks. Just a simple, unambiguous signal: placing blocks is good.
+In this phase, the model receives +0.5 for every obsidian block placed, regardless of where it lands. No penalties. No geometry checks. Just a simple, unambiguous signal: placing blocks = good.
 
 ## Phase 2: Not Just Anywhere (100k–200k steps)
 
@@ -155,47 +169,63 @@ Not Really, : put in video here
 # A Different Approach
 
 By this point, we noticed our previous model had basically learned the wrong lesson. Instead of learning how to build a portal, it had learned to spin around wildly and place obsidian wherever it could. It was getting reward for placing blocks, but it was not learning the structure of a valid frame. So while it looked like we were making progress, the model was really just getting better at random placement.
-<video controls src="videos/ppo_obsidian-step-9000-to-step-9500.mp4" type="video/mp4" width="600" height="400">
+<video controls src="./videos/ppo_obsidian-step-9000-to-step-9500.mp4" type="video/mp4" width="600" height="400">
 Your browser does not support the video tag.
 </video>
 
 At this point, we started to think that the issue was not just the reward system, but also the way the model was allowed to move. Even after simplifying the action space, the camera movement was still far too messy. The agent would look in strange directions, turn too much, and lose track of where it had already placed obsidian. For a task like portal building, that was a huge problem.
 
 So, we changed the action space again. Rather than letting the model control random low level camera movement, we switched to a smaller set of discrete actions. Instead of trying to learn every possible pitch and yaw movement, the model could now choose simple actions like look left, look right, look up, look down, move, place obsidian, jump and place obsidian, and ignite the portal. This made the camera much smoother and made the task much easier to learn.
-<video controls src="videos/RnadomlyPlacingBlocks.mp4" type="video/mp4" width="400" height="400">
+<video controls src="./videos/RnadomlyPlacingBlocks.mp4" type="video/mp4" width="400" height="400">
 Your browser does not support the video tag.
 </video>
 
 From there, we also split the task into phases. First came the build phase. In this phase, the model only had to make the obsidian frame. If it tried to use the flint and steel too early, that action would be blocked and punished. Then came the light phase. Once the frame was complete, the model was encouraged to switch to the flint and steel and ignite the portal. Successfully lighting the portal gave a large reward of +40.
 
 Even with this change, the model still had trouble finishing the full frame consistently. It would often start well, but then drift away and place blocks in bad positions. Still, by around 50k timesteps, we could see that the model had at least learned one useful behavior: it was now intentionally placing obsidian blocks rather than just wandering around aimlessly.
-<video controls src="videos/differentapproach50k.mp4" type="video/mp4" width="400" height="400">
+<video controls src="./videos/differentapproach50k.mp4" type="video/mp4" width="400" height="400">
 Your browser does not support the video tag.
 </video>
 
 So, we broke the build phase down even further into smaller subgoals. Completing the bottom row gave a reward of +4. Completing the left side gave +3. Completing the right side gave +3. Completing the top row gave +4. The goal here was to stop treating the portal like one big all or nothing task, and instead reward the model for making progress piece by piece.
 
 But this led to another issue. The model seemed to figure out that the easiest reward to exploit was the bottom row reward. Rather than building the sides and finishing the portal, it kept repeating the bottom row pattern again and again. Instead of making a frame, it would place four obsidian in a row, then another four, then another four, creating a long line of obsidian across the ground. By around 200k timesteps, the model looked much more deliberate than before, but it was still exploiting this bottom row behavior rather than truly completing the portal.
-<video controls src="videos/differentapproach200k.mp4" type="video/mp4" width="400" height="400">
+<video controls src="./videos/differentapproach200k.mp4" type="video/mp4" width="400" height="400">
 Your browser does not support the video tag.
 </video>
 
 It is possible that this was partly a programming mistake on our end. Our bottom row check may have been too generous, or the reward may have triggered in situations we did not fully intend. But more importantly, it showed us a much bigger lesson about reinforcement learning. Even when a reward system feels logical to us, the model may still find a loophole that maximizes reward without solving the actual task.
 
-# Oversights
+# Limitions and Future Improvemtns
 
-Luckily, we learned early in the project that the goal isn't to create a working model, although it is best that you can, but to learn from this experience.
+## Limitations
+Admittedly, what limit our model most was not our hardware, but our code. 
 
-The main things were learned form this experience were the following:
+Even though our code would take almost days to get a reasonable place, our reward shaping and observation space was what took brunt of our computation power. Processing voxel space and rgb space took too long, and restricted our ability to train and develop better models and reward shapes. In the future, it might be best to leave the rgb space out of our observation space, since it didn't contribute towards our rewards/reward shaping, which was mostly determined by our voxel space observations.
 
--
+Hardware was a contributing factor in our iterating of our model. We weren't able to train and iterate on models, since each run would take many hours, many of those iterations not giving us much insight to how our reward shaping helped or didn't help, resulting in slow progress through our code.
 
-In future, we could/should implement the following:
+MineDojo was probably our biggest limitation, particularly our setup and computation. One of our group members was unable to get MineDojo imported locally and thus we missed another person to iterate on our models. Even more, MineDojo did not like running on Colab. We are still unsure of why, but our suspicions lie in Malmo and Colab's headless nature. 
 
-- Reducing the size of the RGB frame for faster computation (the model does not need to focus on the extraneous noise on the side of the frame); we could do this by completely culling the values towards the edge of the image, allowing the model to focus on what's ahead of it.
-- Use a better tool; MineDojo and MineRL both only run on 1.11, which is a older version of Minecraft and not the common version players speedrun on, which is post 1.16.1.
+## Improvements and Changes
 
-## Ressources Used:
+### 3D CNNs
+A 3D CNN could add spatial locatlity, to our voxel space. It could learn shapes like a nether portal. 
+
+
+### A Change of Pace
+If all we were focused on was the performance of our agent, we would switch off of MineDojo and PPO in general. The best performing and state of the art models for Minecraft involve behavioral training and cloning, both of which were not allowed in this project, but would provide the best result in terms of building a nether portal, which was the original goal. 
+
+**OpenAI's Video Pre-Training** [Baker et al., 2022] is the largest and most well-known example of behavior cloning and perhaps even RL in Minecraft in general. Trained on nearly 70,000 hours of human gameplay, we see that it trains a transformer-based model to imitate human actions using an IDM to extract human inputs to in-game actions. We see outstandingly human and fantastic performance for objectives like aquiring a diamond pickaxe. 
+
+This would have the highest potential for actually being able to do our original goal, speedrunning Minecraft.
+
+
+
+
+
+
+## Resources Used:
 
 ## References:
 
