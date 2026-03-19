@@ -154,21 +154,21 @@ Your browser does not support the video tag.
 At this point, we started to think that the issue was not just the reward system, but also the way the model was allowed to move. Even after simplifying the action space, the camera movement was still far too messy. The agent would look in strange directions, turn too much, and lose track of where it had already placed obsidian. For a task like portal building, that was a huge problem.
 
 So, we changed the action space again. Rather than letting the model control random low level camera movement, we switched to a smaller set of discrete actions. Instead of trying to learn every possible pitch and yaw movement, the model could now choose simple actions like look left, look right, look up, look down, move, place obsidian, jump and place obsidian, and ignite the portal. This made the camera much smoother and made the task much easier to learn.
-<video controls src="videos/RnadomlyPlacing Blocks" type="video/mov" width="600" height="400">
+<video controls src="videos/RnadomlyPlacing Blocks" type="video/quicktime" width="600" height="400">
 Your browser does not support the video tag.
 </video>
 
 From there, we also split the task into phases. First came the build phase. In this phase, the model only had to make the obsidian frame. If it tried to use the flint and steel too early, that action would be blocked and punished. Then came the light phase. Once the frame was complete, the model was encouraged to switch to the flint and steel and ignite the portal. Successfully lighting the portal gave a large reward of +40.
 
 Even with this change, the model still had trouble finishing the full frame consistently. It would often start well, but then drift away and place blocks in bad positions. Still, by around 50k timesteps, we could see that the model had at least learned one useful behavior: it was now intentionally placing obsidian blocks rather than just wandering around aimlessly.
-<video controls src="videos/differentapproach50k" type="video/mov" width="600" height="400">
+<video controls src="videos/differentapproach50k" type="video/quicktime" width="600" height="400">
 Your browser does not support the video tag.
 </video>
 
 So, we broke the build phase down even further into smaller subgoals. Completing the bottom row gave a reward of +4. Completing the left side gave +3. Completing the right side gave +3. Completing the top row gave +4. The goal here was to stop treating the portal like one big all or nothing task, and instead reward the model for making progress piece by piece.
 
 But this led to another issue. The model seemed to figure out that the easiest reward to exploit was the bottom row reward. Rather than building the sides and finishing the portal, it kept repeating the bottom row pattern again and again. Instead of making a frame, it would place four obsidian in a row, then another four, then another four, creating a long line of obsidian across the ground. By around 200k timesteps, the model looked much more deliberate than before, but it was still exploiting this bottom row behavior rather than truly completing the portal.
-<video controls src="videos/differentapproach200k" type="video/mov" width="600" height="400">
+<video controls src="videos/differentapproach200k" type="video/quicktime" width="600" height="400">
 Your browser does not support the video tag.
 </video>
 
