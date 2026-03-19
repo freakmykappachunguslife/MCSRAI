@@ -48,17 +48,24 @@ marking the potential for any good run.
 
 First, we had to decide our goals, and as prompted by the first report, we chose our baseline goal to just create the portal frame. Our target would be to perform a nether portal run on a set seed and the reach goal would be to achieve this on random seeds.
 
-So, we set out to find any tools for training models regarding Minecraft. This led us to MineRL, an open source RL tool for Minecraft. Utilizing "MalMo", Microsoft's tool for AIs in Minecraft, MineRL allows the creation of a Minecraft environment in which the agent can observe, modify, and, well, play Minecraft!
+So, we set out to find any tools for training models regarding Minecraft. This led us to MineRL [Guss et al., 2019], an open source RL tool for Minecraft which utilizes "MalMo", Microsoft's tool for AIs in Minecraft, MineRL allows the creation of a Minecraft environment in which the agent can observe, modify, and, well, play Minecraft!
 
-However, MineRL is sligtly outdated, but luckily, it led us to a more updated tool, MineDojo. This quickly became the backbone of our entire project. As a more modern tool, it allowed us to run more efficiently, observe our model's performance better, and alter more variables.
+However, MineRL is sligtly outdated, but luckily, it led us to a more updated tool, MineDojo [Fan et al., 2022]. This quickly became the backbone of our entire project. As a more modern tool, it allowed us to a different observation space, voxels, which would become our most relied on form of interaction with our agent.
 
 # A Quick Intro to a MineDojo Environment
 
 The MineDojo environment is a Minecraft world in which the Malmo agent is able to run and input commands. The choices the agent can take is the "action space", with basic movement inputs like "WASD" and "Spacebar". This also includes item management inputs like "1-9" and "E". Furthermore this also includes camera movement, allowing the agent to move the head left, right, up, and down. The observation space is two main parts: the voxel space and the RGB pixel frame. The voxel space is a 9x9x9 block area around the agent, denoting each Minecraft block within each tile in this space. The RGB pixel frame is a 2D array, with each entry being the RGB value of the pixel at that location (x,y) in the frame of the display.
 
+# Methods
+
+## Proximal Policy Optimization
+Proximal Policy Optimization (PPO) [Schulman et al., 2017] is an on-policy actor-critic algorithm that updates the policy by maximising a clipped surrogate objective, preventing any single update from changing the policy too drastically. For our task, PPO was the natural choice for several reasons. First, our action space is a compound MultiDiscrete([3,3,4,25,25,8,244,36]) representing simultaneous movement, camera, and functional actions — DQN is fundamentally incompatible with this structure as it requires enumerating Q-values over every possible action, which at roughly 47 million combinations is computationally intractable. SAC, while effective in continuous control, was designed for Box action spaces and lacks stable discrete support in standard implementations. Second, our reward function changes during training via the curriculum — the misplaced block penalty ramps from 0 to 1.0 over 200,000 steps — and PPO's on-policy nature means every gradient update is computed on experience collected under the current reward signal, keeping the policy and reward function in sync. An off-policy method like SAC would contaminate its replay buffer with transitions collected under an earlier, weaker penalty, muddying the curriculum signal. Finally, PPO's ent_coef parameter gave us direct control over the exploration-exploitation tradeoff, which proved critical when the model first exhibited learned helplessness — raising entropy from 0.01 to 0.05 was a hyperparameter that would not be possible in a value-based framework like SAC.
+
+# Approach and Evaluation
+
 ## Stone Age
 
-As we began to train, we noticed issues. First off, we needed to redifine our "start state". With the default environment, the terrain wasn't flat. This could cause our agent to create "bad" portals, despite it thinking it was (attached video is example ADD TS FROM BEFORE).
+As we began to train, we noticed issues. First off, we needed to redefine our "start state". With the default environment, the terrain wasn't flat. This could cause our agent to create "bad" portals, despite it thinking it was (attached video is example ADD TS FROM BEFORE).
 
 So, we changed our "start state" to begin on a superflat world. This would create completely flat and replicable terrain for our agent to train on. But with this came the fact that there is no method to create a portal in this superflat world. So, we gave the agent the nescessary resources to begin building.
 
@@ -67,8 +74,6 @@ Initially, we looked at the base choice: random. Take a random input from the ac
 We rid ourselves of many uneventful actions, like "Q", "E", "F", and "ESC" for example. This would make our agent to always pick some input that guided us towards completion.
 
 With these basic things in mind, we were able to begin really training our model.
-
-# Approach and Evaluation:
 
 ## Aquire Hardware
 
@@ -190,7 +195,52 @@ In future, we could/should implement the following:
 - Reducing the size of the RGB frame for faster computation (the model does not need to focus on the extraneous noise on the side of the frame); we could do this by completely culling the values towards the edge of the image, allowing the model to focus on what's ahead of it.
 - Use a better tool; MineDojo and MineRL both only run on 1.11, which is a older version of Minecraft and not the common version players speedrun on, which is post 1.16.1.
 
-## Resources Used:
+## Ressources Used:
+
+## References:
+
+Schulman, J., Wolski, F., Dhariwal, P., Radford, A., & Klimov, O. (2017).
+Proximal Policy Optimization Algorithms.
+arXiv preprint arXiv:1707.06347.
+https://arxiv.org/abs/1707.06347
+
+Raffin, A., Hill, A., Gleave, A., Kanervisto, A., Ernestus, M., & Dormann, N. (2021).
+Stable-Baselines3: Reliable Reinforcement Learning Implementations.
+Journal of Machine Learning Research, 22(268), 1–8.
+http://jmlr.org/papers/v22/20-1364.html
+
+Guss, W. H., Houghton, B., Topin, N., Wang, P., Codel, C., Veloso, M., & Salakhutdinov, R. (2019).
+MineRL: A Large-Scale Dataset of Minecraft Demonstrations.
+Proceedings of the 28th International Joint Conference on Artificial Intelligence (IJCAI).
+https://arxiv.org/abs/1907.13440
+
+Fan, L., Wang, G., Jiang, Y., Mandlekar, A., Yang, Y., Zhu, H., Tang, A.,
+Huang, D., Zhu, Y., & Anandkumar, A. (2022).
+MineDojo: Building Open-Ended Embodied Agents with Internet-Scale Knowledge.
+Advances in Neural Information Processing Systems, 35, 18343–18362.
+https://minedojo.org
+
+Paszke, A., Gross, S., Massa, F., Lerer, A., Bradbury, J., Chanan, G., Killeen, T.,
+Lin, Z., Gimelshein, N., Antiga, L., Desmaison, A., Kopf, A., Yang, E., DeVito, Z.,
+Raison, M., Tejani, A., Chilamkurthy, S., Steiner, B., Fang, L., Bai, J., & Chintala, S. (2019).
+PyTorch: An Imperative Style, High-Performance Deep Learning Library.
+Advances in Neural Information Processing Systems, 32, 8024–8035.
+https://pytorch.org
+
+Towers, M., Terry, J. K., Kwiatkowski, A., Balis, J. U., Cola, G. D., Deleu, T.,
+Goulão, M., Kallinteris, A., KG, A., Kuzmins, M., Perez-Vicente, R., Pierré, A.,
+Schulhoff, S., Tai, J. J., Tan, A. J. S., & Younis, O. G. (2023).
+Gymnasium.
+Zenodo.
+https://doi.org/10.5281/zenodo.8127026
+
+Harris, C. R., Millman, K. J., van der Walt, S. J., Gommers, R., Virtanen, P.,
+Cournapeau, D., Wieser, E., Taylor, J., Berg, S., Smith, N. J., Kern, R., Picus, M.,
+Hoyer, S., van Kerkwijk, M. H., Brett, M., Haldane, A., del Río, J. F., Wiebe, M.,
+Peterson, P., … Oliphant, T. E. (2020).
+Array programming with NumPy.
+Nature, 585, 357–362.
+https://doi.org/10.1038/s41586-020-2649-2
 
 ## Video Walkthrough:
 
