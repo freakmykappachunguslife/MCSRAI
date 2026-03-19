@@ -59,11 +59,14 @@ The MineDojo environment is a Minecraft world in which the Malmo agent is able t
 # Methods
 
 ## Proximal Policy Optimization
+
 **Proximal Policy Optimization** (PPO) [Schulman et al., 2017] is an on-policy actor-critic algorithm that updates the policy by maximising a clipped surrogate objective, preventing any single update from changing the policy too drastically. For our task, PPO was the natural choice for several reasons. First, our action space is a **compound** **MultiDiscrete([3,3,4,25,25,8,244,36])** representing simultaneous movement, camera, and functional actions — DQN is fundamentally incompatible with this structure as it requires enumerating Q-values over every possible action, which at roughly 47 million combinations is **computationally intractable**. SAC, while effective in continuous control, was designed for Box action spaces and lacks stable discrete support in standard implementations. Second, our reward function changes during training via the curriculum — the misplaced block penalty ramps from 0 to 1.0 over 200,000 steps — and PPO's on-policy nature means every gradient update is computed on experience collected under the current reward signal, keeping the policy and reward function in sync. An off-policy method like SAC would contaminate its replay buffer with transitions collected under an earlier, weaker penalty, muddying the curriculum signal. Finally, PPO's ent_coef parameter gave us direct control over the exploration-exploitation tradeoff, which proved critical when the model first exhibited learned helplessness — raising entropy from 0.01 to 0.05 was a hyperparameter that would not be possible in a value-based framework like SAC.
 
 To implement PPO in our initial models, we utilized Stable-Baseline3 [Raffin et al., 2021] and its default parameters.
+
 # Approach and Evaluation
-To begin, we began with a very basic agent, no policy yet, just randomly select from all actions in our MultiDiscrete([3,3,4,25,25,8,244,36]) action space, masking impossible actions, and letting it roam free. 
+
+To begin, we began with a very basic agent, no policy yet, just randomly select from all actions in our MultiDiscrete([3,3,4,25,25,8,244,36]) action space, masking impossible actions, and letting it roam free.
 
 ## Stone Age
 
@@ -72,7 +75,6 @@ As we began to train, we noticed issues. First off, we needed to redefine our "s
 <video controls src="./videos/randomagent.mp4" type="video/mp4" width="600" height="400">
 Your browser is old as hell
 </video>
-
 
 So, we changed our "start state" to begin on a superflat world. This would create completely flat and replicable terrain for our agent to train on. But with this came the fact that there is no method to create a portal in this superflat world. So, we gave the agent the nescessary resources to begin building.
 
@@ -113,14 +115,11 @@ This led us to the following graph:
 
 ![](./images/rew_mean_1M_ts.png)
 
-
 ** A Preface: All the future graphs will have the total reward value in the negatives. This is expected and due to the punishment for timesteps **
 
 As we observed, the model began very poorly, still haphazardly placing obsidian; the old model accumulated many punishments. But as we continued to train the model, we observed our scores improving!
 
 This was exciting to observe on Tensorboard, seeing the total reward begin to rise! We had began to create a "good" model!
-
-
 
 ## Hot Stuff
 
@@ -162,15 +161,15 @@ This phase acts as a transition. The model begins to notice that some placements
 In the final phase, the full reward signal activates. Blocks placed on one of the 14 valid nether portal frame positions earn an additional +2.0 on top of the flat reward, making correct placement worth +2.5 total versus +0.5 for a misplaced block. The model now has a clear target and the training history to pursue it without collapsing back into passivity.
 
 # Sucess?
+
 not really.
 
 ![not really](./images/post_rew_shape.png)
 
-We observe the model actually decrease in the reward in the first 100k steps, curiously due to the fact that we removed the punishment for getting hurt. We see episode length stagnant: 
+We observe the model actually decrease in the reward in the first 100k steps, curiously due to the fact that we removed the punishment for getting hurt. We see episode length stagnant:
 ![alt text](./images/ep_len.png)
 
-This, likely is likely because it is killing itself, shortening its life on the environment. This is where we ended our training, as it wouldn't unlearn this behavior, since we never will punish for getting hurt or episode length. 
-
+This, likely is likely because it is killing itself, shortening its life on the environment. This is where we ended our training, as it wouldn't unlearn this behavior, since we never will punish for getting hurt or episode length.
 
 # A Different Approach
 
@@ -203,41 +202,46 @@ But this led to another issue. The model seemed to figure out that the easiest r
 Your browser does not support the video tag.
 </video>
 
-
 It is possible that this was partly a programming mistake on our end. Our bottom row check may have been too generous, or the reward may have triggered in situations we did not fully intend. But more importantly, it showed us a much bigger lesson about reinforcement learning. Even when a reward system feels logical to us, the model may still find a loophole that maximizes reward without solving the actual task.
+
+![different_approach_mean_graph](./images/differentapproachean.png)
+
+This graph reflects that progression quite well. In the early stages of training, the model improved quickly because it learned a simple useful behavior, which was placing obsidian blocks instead of doing nothing. After that, the reward curve leveled off for a long stretch, showing that while the model was making progress, it still had not learned how to consistently build a proper portal frame. Then, around 170k to 200k timesteps, the reward rose sharply, which suggests the model had begun to act more deliberately and was benefiting from the subgoal based reward structure. Even though the score later dipped and recovered, the overall trend stayed much higher than before, ending near a reward of 90 by about 262k steps. In other words, the graph shows that the subgoal based approach did help the model learn more stable and purposeful behavior, but it also supports our conclusion that higher reward did not always mean true task completion, since the model could still exploit parts of the reward system without fully solving the portal building problem.
 
 # Limitions and Future Improvemtns
 
 ## Limitations
-Admittedly, what limit our model most was not our hardware, but our code. 
+
+Admittedly, what limit our model most was not our hardware, but our code.
 
 Even though our code would take almost days to get a reasonable place, our reward shaping and observation space was what took brunt of our computation power. Processing voxel space and rgb space took too long, and restricted our ability to train and develop better models and reward shapes. In the future, it might be best to leave the rgb space out of our observation space, since it didn't contribute towards our rewards/reward shaping, which was mostly determined by our voxel space observations.
 
 Hardware was a contributing factor in our iterating of our model. We weren't able to train and iterate on models, since each run would take many hours, many of those iterations not giving us much insight to how our reward shaping helped or didn't help, resulting in slow progress through our code.
 
-MineDojo was probably our biggest limitation, particularly our setup and computation. One of our group members was unable to get MineDojo imported locally and thus we missed another person to iterate on our models. Even more, MineDojo did not like running on Colab. We are still unsure of why, but our suspicions lie in Malmo and Colab's headless nature. 
+MineDojo was probably our biggest limitation, particularly our setup and computation. One of our group members was unable to get MineDojo imported locally and thus we missed another person to iterate on our models. Even more, MineDojo did not like running on Colab. We are still unsure of why, but our suspicions lie in Malmo and Colab's headless nature.
 
 ## Improvements and Changes
 
 ### 3D CNNs
-A 3D CNN could add spatial locatlity, to our voxel space. It could learn shapes like a nether portal in the voxel space. 
 
+A 3D CNN could add spatial locatlity, to our voxel space. It could learn shapes like a nether portal in the voxel space.
 
 ### A Change of Pace
-If all we were focused on was the performance of our agent, we would switch off of MineDojo and PPO in general. The best performing and state of the art models for Minecraft involve behavioral training and cloning, both of which were not allowed in this project, but would provide the best result in terms of building a nether portal, which was the original goal. 
 
-**OpenAI's Video Pre-Training** [Baker et al., 2022] is the largest and most well-known example of behavior cloning and perhaps even RL in Minecraft in general. Trained on nearly 70,000 hours of human gameplay, we see that it trains a transformer-based model to imitate human actions using an IDM to extract human inputs to in-game actions. We see outstandingly human and fantastic performance for objectives like aquiring a diamond pickaxe. 
+If all we were focused on was the performance of our agent, we would switch off of MineDojo and PPO in general. The best performing and state of the art models for Minecraft involve behavioral training and cloning, both of which were not allowed in this project, but would provide the best result in terms of building a nether portal, which was the original goal.
+
+**OpenAI's Video Pre-Training** [Baker et al., 2022] is the largest and most well-known example of behavior cloning and perhaps even RL in Minecraft in general. Trained on nearly 70,000 hours of human gameplay, we see that it trains a transformer-based model to imitate human actions using an IDM to extract human inputs to in-game actions. We see outstandingly human and fantastic performance for objectives like aquiring a diamond pickaxe.
 
 This would have the highest potential for actually being able to do our original goal, speedrunning Minecraft.
 
 ## Resources Used:
+
 Towers, M., Terry, J. K., Kwiatkowski, A., Balis, J. U., Cola, G. D., Deleu, T.,
 Goulão, M., Kallinteris, A., KG, A., Kuzmins, M., Perez-Vicente, R., Pierré, A.,
 Schulhoff, S., Tai, J. J., Tan, A. J. S., & Younis, O. G. (2023).
 Gymnasium.
 Zenodo.
 https://doi.org/10.5281/zenodo.8127026
-
 
 Paszke, A., Gross, S., Massa, F., Lerer, A., Bradbury, J., Chanan, G., Killeen, T.,
 Lin, Z., Gimelshein, N., Antiga, L., Desmaison, A., Kopf, A., Yang, E., DeVito, Z.,
@@ -264,7 +268,6 @@ Huang, D., Zhu, Y., & Anandkumar, A. (2022).
 MineDojo: Building Open-Ended Embodied Agents with Internet-Scale Knowledge.
 Advances in Neural Information Processing Systems, 35, 18343–18362.
 https://minedojo.org
-
 
 ## References:
 
