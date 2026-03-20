@@ -283,4 +283,6 @@ https://arxiv.org/abs/1907.13440
 
 ## Video Walkthrough:
 
-# CITE SOURCES REMEMBER
+<video controls src="./videos/FinalVideo.mp4" type="video/mp4" width="400" height="400">
+Your browser does not support the video tag.
+</video>
