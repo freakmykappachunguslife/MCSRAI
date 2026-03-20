@@ -285,4 +285,4 @@ https://arxiv.org/abs/1907.13440
 
 The full video walkthrough for our project can be viewed here:
 
-[![Final Video](https://img.youtube.com/vi/OQvsSwpG-z0/0.jpg)](https://www.youtube.com/watch?v=OQvsSwpG-z0)
+[![Final Video](https://img.youtube.com/vi/IzwBCX3dFZI/0.jpg)](https://www.youtube.com/watch?v=IzwBCX3dFZI)
