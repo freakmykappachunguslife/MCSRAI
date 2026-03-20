@@ -283,6 +283,6 @@ https://arxiv.org/abs/1907.13440
 
 ## Video Walkthrough:
 
-<video controls src="./videos/FinalVideo.mp4" type="video/mp4" width="400" height="400">
-Your browser does not support the video tag.
-</video>
+The full video walkthrough for our project can be viewed here:
+
+[![Final Video](https://img.youtube.com/vi/OQvsSwpG-z0/0.jpg)](https://www.youtube.com/watch?v=OQvsSwpG-z0)
